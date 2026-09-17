@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>6e - Entraînement big quizz</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            /* Assurez-vous d'avoir une image nommée 'semeur.jpg' dans le même dossier que ce fichier HTML */
+            background: url('semeur.jpg') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .quiz-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+        .header { text-align: center; margin-bottom: 20px; }
+        .score-display {
+            background: #2c3e50; color: white; padding: 10px 20px;
+            border-radius: 25px; display: inline-block; font-size: 18px; font-weight: bold; margin-bottom: 15px;
+        }
+        .question-number { font-size: 16px; color: #7f8c8d; margin-bottom: 10px; }
+        .audio-player { width: 100%; margin: 20px 0; background: #34495e; border-radius: 10px; padding: 15px; }
+        .audio-player audio { width: 100%; outline: none; }
+        .question { font-size: 24px; color: #2c3e50; text-align: center; margin: 20px 0; font-weight: bold; }
+        .answers { display: flex; flex-direction: column; gap: 15px; margin: 25px 0; }
+        .answer-btn {
+            padding: 18px 25px; font-size: 16px; border: 3px solid #3498db;
+            background: white; color: #2c3e50; border-radius: 10px;
+            cursor: pointer; transition: all 0.3s ease; text-align: left; font-weight: 500;
+        }
+        .answer-btn:hover:not(:disabled) { background: #3498db; color: white; transform: translateX(5px); }
+        .answer-btn.selected { background: #3498db; color: white; border-color: #2980b9; }
+        .answer-btn.correct { background: #27ae60; color: white; border-color: #219a52; }
+        .answer-btn.wrong { background: #e74c3c; color: white; border-color: #c0392b; }
+        .answer-btn:disabled { cursor: not-allowed; opacity: 0.7; }
+        .validate-btn, .next-btn, .restart-btn {
+            background: #e74c3c; color: white; border: none; padding: 15px 40px;
+            font-size: 18px; border-radius: 25px; cursor: pointer;
+            display: block; margin: 20px auto; transition: all 0.3s ease; font-weight: bold;
+        }
+        .validate-btn:hover, .next-btn:hover, .restart-btn:hover { background: #c0392b; transform: scale(1.05); }
+        .next-btn { background: #3498db; display: none; }
+        .next-btn:hover { background: #2980b9; }
+        .restart-btn { background: #27ae60; display: none; }
+        .restart-btn:hover { background: #219a52; }
+        .feedback {
+            text-align: center; font-size: 28px; font-weight: bold;
+            padding: 20px; border-radius: 10px; margin: 20px 0; display: none;
+        }
+        .feedback.bravo { background: #d4edda; color: #155724; border: 2px solid #c3e6cb; display: block; }
+        .feedback.rate { background: #f8d7da; color: #721c24; border: 2px solid #f5c6cb; display: block; }
+        .final-score {
+            text-align: center; font-size: 48px; font-weight: bold;
+            color: #2c3e50; margin: 30px 0; padding: 30px;
+            background: #ecf0f1; border-radius: 15px;
+        }
+        .final-message { text-align: center; font-size: 22px; color: #7f8c8d; margin: 20px 0; }
+        .hidden { display: none; }
+        .progress-bar { width: 100%; height: 8px; background: #ecf0f1; border-radius: 4px; margin: 20px 0; overflow: hidden; }
+        .progress-fill { height: 100%; background: #3498db; transition: width 0.3s ease; }
+    </style>
+</head>
+<body>
+    <div class="quiz-container">
+        <div class="header">
+            <div class="score-display" id="scoreDisplay">Score : 0/6</div>
+            <div class="question-number" id="questionNumber">Question 1 sur 6</div>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressBar" style="width: 5%;"></div>
+        </div>
+
+        <div id="quizContent">
+            <div class="audio-player">
+                <audio id="audioPlayer" controls>
+                    <source src="" type="audio/mpeg">
+                    Votre navigateur ne supporte pas le lecteur audio.
+                </audio>
+            </div>
+            <div class="question">De quel extrait s'agit-il ?</div>
+            <div class="answers" id="answersContainer"></div>
+            <div class="feedback" id="feedback"></div>
+            <button class="validate-btn" id="validateBtn" onclick="validateAnswer()">Valider</button>
+            <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Extrait suivant →</button>
+        </div>
+
+        <div id="finalScreen" class="hidden">
+            <div class="final-score" id="finalScore"></div>
+            <div class="final-message" id="finalMessage"></div>
+            <button class="restart-btn" id="restartBtn" onclick="restartQuiz()" style="display: block;">🔄 Refaire le quiz</button>
+        </div>
+    </div>
+
+    <script>
+        // BASE DE DONNÉES DES 6 EXTRAITS AVEC LIENS DIRECTS NEXCLOUD ÉDUCATION
+        const allTracks = [
+            { id: 2, composer: "Granados", work: "Andaluza", file: "https://nuage03.apps.education.fr/public.php/dav/files/7NYSwbkCABkyiBw/Granados%20-%20Andaluza.mp3" },
+            { id: 4, composer: "Delibes", work: "Lakmé, Valse des fleurs", file: "https://nuage03.apps.education.fr/public.php/dav/files/2TpfDXe7pETxpeS/Delibes%20-Lakm%C3%A9%20%28Duo%20des%20fleurs%29.mp3" },
+            { id: 3, composer: "Mahler", work: "Symphonie n°1 -III", file: "https://nuage03.apps.education.fr/public.php/dav/files/7NYSwbkCABkyiBw/Mahler%20-Symphonie%20n%C2%B01%20-III.mp3" },
+            { id: 1, composer: "Mozart", work: "Symphonie No.40 K.550 _ 1. Molto allegro", file: "https://nuage03.apps.education.fr/public.php/dav/files/7NYSwbkCABkyiBw/Mozart%20-Symphonie%20No.40%20K.550%20_%201.%20Molto%20allegro.mp3" },
+            { id: 5, composer: "Rameau", work: "Les sauvages", file: "https://nuage03.apps.education.fr/public.php/dav/files/7NYSwbkCABkyiBw/Rameau%20-Les%20sauvages.mp3" },
+            { id: 6, composer: "Villa-Lobos", work: "Prélude pour guitare n°1", file: "https://nuage03.apps.education.fr/public.php/dav/files/7NYSwbkCABkyiBw/Villa-Lobos%20-Pr%C3%A9lude%20pour%20guitare%20n%C2%B01.mp3" },
+        ];
+
+        let currentQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let selectedAnswer = null;
+
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function selectQuestions() {
+            const shuffled = shuffleArray(allTracks);
+            currentQuestions = shuffled.slice(0, 20);
+        }
+
+        function generateAnswers(correctTrack) {
+            const otherTracks = allTracks.filter(t => t.id !== correctTrack.id);
+            const shuffledOthers = shuffleArray(otherTracks);
+            const wrongAnswers = shuffledOthers.slice(0, 2);
+            const answers = [
+                { text: `${correctTrack.composer} - ${correctTrack.work}`, correct: true, id: correctTrack.id },
+                { text: `${wrongAnswers[0].composer} - ${wrongAnswers[0].work}`, correct: false, id: wrongAnswers[0].id },
+                { text: `${wrongAnswers[1].composer} - ${wrongAnswers[1].work}`, correct: false, id: wrongAnswers[1].id }
+            ];
+            return shuffleArray(answers);
+        }
+
+        function displayQuestion() {
+            const currentTrack = currentQuestions[currentQuestionIndex];
+            const answers = generateAnswers(currentTrack);
+            
+            document.getElementById('questionNumber').textContent = `Question ${currentQuestionIndex + 1} sur 6`;
+            document.getElementById('scoreDisplay').textContent = `Score : ${score}/6`;
+            document.getElementById('progressBar').style.width = `${((currentQuestionIndex + 1) / 6) * 100}%`;
+            
+            const audioPlayer = document.getElementById('audioPlayer');
+            audioPlayer.src = currentTrack.file;
+            audioPlayer.load();
+            
+            const answersContainer = document.getElementById('answersContainer');
+            answersContainer.innerHTML = '';
+            
+            answers.forEach((answer) => {
+                const btn = document.createElement('button');
+                btn.className = 'answer-btn';
+                btn.textContent = answer.text;
+                btn.dataset.correct = answer.correct;
+                btn.onclick = () => selectAnswer(btn);
+                answersContainer.appendChild(btn);
+            });
+            
+            selectedAnswer = null;
+            document.getElementById('feedback').className = 'feedback';
+            document.getElementById('feedback').style.display = 'none';
+            document.getElementById('validateBtn').style.display = 'block';
+            document.getElementById('nextBtn').style.display = 'none';
+            
+            const allBtns = document.querySelectorAll('.answer-btn');
+            allBtns.forEach(btn => {
+                btn.disabled = false;
+                btn.classList.remove('selected', 'correct', 'wrong');
+            });
+        }
+
+        function selectAnswer(btn) {
+            if (document.getElementById('validateBtn').style.display === 'none') return;
+            document.querySelectorAll('.answer-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            selectedAnswer = btn;
+        }
+
+        function validateAnswer() {
+            if (!selectedAnswer) { alert("Veuillez sélectionner une réponse !"); return; }
+            
+            const isCorrect = selectedAnswer.dataset.correct === 'true';
+            const feedback = document.getElementById('feedback');
+            const allBtns = document.querySelectorAll('.answer-btn');
+            
+            allBtns.forEach(btn => {
+                btn.disabled = true;
+                if (btn.dataset.correct === 'true') btn.classList.add('correct');
+            });
+            
+            if (isCorrect) {
+                score++;
+                feedback.textContent = "🎉 Bravo !";
+                feedback.className = 'feedback bravo';
+            } else {
+                selectedAnswer.classList.add('wrong');
+                feedback.textContent = "❌ Raté !";
+                feedback.className = 'feedback rate';
+            }
+            
+            document.getElementById('scoreDisplay').textContent = `Score : ${score}/20`;
+            document.getElementById('validateBtn').style.display = 'none';
+            document.getElementById('nextBtn').style.display = 'block';
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex >= 6) showFinalResults();
+            else displayQuestion();
+        }
+
+        function showFinalResults() {
+            document.getElementById('quizContent').classList.add('hidden');
+            document.getElementById('finalScreen').classList.remove('hidden');
+            document.getElementById('questionNumber').style.display = 'none';
+            document.getElementById('scoreDisplay').style.display = 'none';
+            document.getElementById('progressBar').style.display = 'none';
+            
+            const finalScore = document.getElementById('finalScore');
+            const finalMessage = document.getElementById('finalMessage');
+            finalScore.textContent = `${score} / 6`;
+            
+            let message = "";
+            if (score === 6) message = "🏆 Exceptionnel ! Un sans faute !";
+            else if (score >= 5) message = "🌟 Excellent travail !";
+            else if (score >= 4) message = "👍 Très bien !";
+            else if (score >= 3) message = "✅ Bien ! Continue comme ça !";
+            else if (score >= 2) message = "📚 Pas mal, mais tu peux faire mieux !";
+            else message = "💪 Courage, recommence pour progresser !";
+            
+            finalMessage.textContent = message;
+        }
+
+        function restartQuiz() {
+            currentQuestionIndex = 0;
+            score = 0;
+            selectedAnswer = null;
+            document.getElementById('quizContent').classList.remove('hidden');
+            document.getElementById('finalScreen').classList.add('hidden');
+            document.getElementById('questionNumber').style.display = 'block';
+            document.getElementById('scoreDisplay').style.display = 'inline-block';
+            document.getElementById('progressBar').style.display = 'block';
+            selectQuestions();
+            displayQuestion();
+        }
+
+        window.onload = function() {
+            selectQuestions();
+            displayQuestion();
+        };
+    </script>
+</body>
+</html>
